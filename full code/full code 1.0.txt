@@ -1,0 +1,716 @@
+server.js:
+
+const express = require('express');
+const app = express();
+const http = require('http').createServer(app);
+const io = require('socket.io')(http);
+const PORT = process.env.PORT || 3000;
+
+app.use(express.static('public'));
+
+const players = {};
+const chatHistory = [];
+
+// Canvas dimensions and player size
+const CANVAS_WIDTH = 800;
+const CANVAS_HEIGHT = 600;
+const PLAYER_RADIUS = 20;
+
+function generateRandomUsername() {
+  const prefixes = ['Player', 'User', 'Gamer', 'Blob', 'Guest', 'Casual'];
+  const randomNum = Math.floor(1000 + Math.random() * 9000); // 4 digit number
+  return `${prefixes[Math.floor(Math.random() * prefixes.length)]}${randomNum}`;
+}
+
+io.on('connection', (socket) => {
+  console.log('A user connected:', socket.id);
+
+  socket.on('newPlayer', (data) => {
+    // Use provided username or generate a random one
+    const username = data.username || generateRandomUsername();
+    
+    players[socket.id] = {
+      x: Math.floor(Math.random() * (CANVAS_WIDTH - 2 * PLAYER_RADIUS)) + PLAYER_RADIUS,
+      y: Math.floor(Math.random() * (CANVAS_HEIGHT - 2 * PLAYER_RADIUS)) + PLAYER_RADIUS,
+      color: data.color,
+      username: username,
+    };
+    console.log(`New player joined: ${username} (${data.color})`);
+    socket.emit('chatHistory', chatHistory);
+  });
+
+  socket.on('updatePlayer', (data) => {
+    if (players[socket.id]) {
+      let changes = [];
+      
+      if (data.color) {
+        players[socket.id].color = data.color;
+        changes.push(`color to ${data.color}`);
+      }
+      
+      if (data.username) {
+        players[socket.id].username = data.username;
+        changes.push(`name to ${data.username}`);
+      }
+      
+      console.log(`Player ${socket.id} updated: ${changes.join(', ')}`);
+    }
+  });
+
+  socket.on('move', (dir) => {
+    const speed = 3;
+    if (players[socket.id]) {
+      if (dir === 'left') players[socket.id].x -= speed;
+      if (dir === 'right') players[socket.id].x += speed;
+      if (dir === 'up') players[socket.id].y -= speed;
+      if (dir === 'down') players[socket.id].y += speed;
+
+      // Fixed boundary checking accounting for player radius
+      players[socket.id].x = Math.max(PLAYER_RADIUS, Math.min(players[socket.id].x, CANVAS_WIDTH - PLAYER_RADIUS));
+      players[socket.id].y = Math.max(PLAYER_RADIUS, Math.min(players[socket.id].y, CANVAS_HEIGHT - PLAYER_RADIUS));
+    }
+  });
+
+  socket.on('chatMessage', (msg) => {
+    let username = players[socket.id]?.username;
+    if (!username) username = 'Anonymous';
+    const message = { username, text: msg };
+    chatHistory.push(message);
+    if (chatHistory.length > 50) chatHistory.shift();
+    io.emit('chatMessage', message);
+  });
+
+  socket.on('disconnect', () => {
+    console.log('User disconnected:', socket.id);
+    delete players[socket.id];
+  });
+
+  setInterval(() => {
+    io.emit('state', players);
+  }, 1000 / 60);
+});
+
+http.listen(PORT, '0.0.0.0', () => {
+  console.log(`Server is running on http://localhost:${PORT}`);
+});
+
+public/client.js:
+
+const socket = io();
+const canvas = document.getElementById('game');
+const ctx = canvas.getContext('2d');
+const previewCanvas = document.getElementById('blobPreview');
+const previewCtx = previewCanvas.getContext('2d');
+let keys = {};
+let playerColor = getRandomColor();
+let username = generateRandomUsername();
+let lastPositions = {}; // Store previous positions for particles
+let particles = []; // Array to store all particles
+let currentlyPlaying = false; // Flag to check if game is active
+let playerAnimations = {}; // Store animation state for each player
+
+// Get DOM elements for customization
+const customizeBtn = document.getElementById('customizeBtn');
+const customizeMenu = document.getElementById('customizeMenu');
+const nameInput = document.getElementById('nameInput');
+const namePreview = document.getElementById('namePreview');
+const applyCustomization = document.getElementById('applyCustomization');
+const closeCustomize = document.getElementById('closeCustomize');
+const colorSwatches = document.querySelectorAll('.color-swatch');
+const startForm = document.getElementById('startForm');
+let selectedColor = null;
+let newUsername = null;
+
+function getRandomColor() {
+  const colors = ['red', 'blue', 'green', 'purple', 'orange', 'pink', 'cyan', 'yellow'];
+  return colors[Math.floor(Math.random() * colors.length)];
+}
+
+function generateRandomUsername() {
+  const prefixes = ['Player', 'User', 'Gamer', 'Blob', 'Guest', 'Casual'];
+  const randomNum = Math.floor(1000 + Math.random() * 9000); // 4 digit number
+  return `${prefixes[Math.floor(Math.random() * prefixes.length)]}${randomNum}`;
+}
+
+// Particle class
+class Particle {
+  constructor(x, y, color) {
+    this.x = x;
+    this.y = y;
+    this.size = Math.random() * 3 + 2;
+    this.color = color;
+    this.speedX = Math.random() * 1 - 0.5;
+    this.speedY = Math.random() * 1 - 0.5;
+    this.life = 30; // How long the particle lives (frames)
+  }
+
+  update() {
+    this.x += this.speedX;
+    this.y += this.speedY;
+    this.life--;
+    if (this.life > 0) {
+      this.size *= 0.95; // Particles get smaller over time
+    }
+  }
+
+  draw() {
+    ctx.fillStyle = this.color;
+    ctx.globalAlpha = this.life / 30;
+    ctx.beginPath();
+    ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.globalAlpha = 1;
+  }
+}
+
+// Create particles when player moves
+function createParticles(player, id) {
+  if (!lastPositions[id]) {
+    lastPositions[id] = { x: player.x, y: player.y };
+    return;
+  }
+
+  // Only create particles if the player moved a meaningful distance
+  const distance = Math.hypot(player.x - lastPositions[id].x, player.y - lastPositions[id].y);
+  if (distance > 1) {
+    for (let i = 0; i < 2; i++) {
+      particles.push(new Particle(player.x, player.y, player.color));
+    }
+    lastPositions[id] = { x: player.x, y: player.y };
+    
+    // Update animation state for pulsing effect
+    if (!playerAnimations[id]) {
+      playerAnimations[id] = {
+        pulsating: true,
+        scale: 1,
+        direction: -1, // Start by getting smaller
+        speed: 0.04
+      };
+    } else {
+      // Reset pulsation when moving
+      playerAnimations[id].pulsating = true;
+    }
+  } else {
+    // Player is not moving, gradually stop pulsating
+    if (playerAnimations[id] && playerAnimations[id].pulsating) {
+      // Reset scale towards 1 when stopped
+      if (Math.abs(playerAnimations[id].scale - 1) < 0.02) {
+        playerAnimations[id].scale = 1;
+        playerAnimations[id].pulsating = false;
+      } else {
+        // Move scale back to 1 gradually
+        playerAnimations[id].scale += (1 - playerAnimations[id].scale) * 0.1;
+      }
+    }
+  }
+}
+
+// Draw blob in preview canvas
+function updatePreview() {
+  previewCtx.clearRect(0, 0, previewCanvas.width, previewCanvas.height);
+  previewCtx.fillStyle = selectedColor || playerColor;
+  previewCtx.beginPath();
+  previewCtx.arc(previewCanvas.width / 2, previewCanvas.height / 2, 20, 0, Math.PI * 2);
+  previewCtx.fill();
+  
+  // Update name preview
+  namePreview.textContent = newUsername || username;
+}
+
+// Initialize color swatches
+function initializeColorSwatches() {
+  // Add click events to color swatches
+  colorSwatches.forEach(swatch => {
+    swatch.addEventListener('click', () => {
+      // Remove selected class from all swatches
+      colorSwatches.forEach(s => s.classList.remove('selected'));
+      // Add selected class to clicked swatch
+      swatch.classList.add('selected');
+      // Update selected color
+      selectedColor = swatch.dataset.color;
+      // Update preview
+      updatePreview();
+    });
+    
+    // If this swatch matches the current playerColor, select it
+    if (swatch.dataset.color === playerColor) {
+      swatch.classList.add('selected');
+      selectedColor = playerColor;
+    }
+  });
+  
+  // Initialize name input events
+  nameInput.value = username;
+  nameInput.addEventListener('input', () => {
+    newUsername = nameInput.value.trim() || username;
+    updatePreview();
+  });
+  
+  // Initial preview
+  updatePreview();
+}
+
+// Initialize customization menu
+function initializeCustomizationMenu() {
+  // Show customize button when game starts
+  customizeBtn.addEventListener('click', () => {
+    customizeMenu.style.display = 'block';
+    // Ensure the correct color is selected
+    colorSwatches.forEach(s => s.classList.remove('selected'));
+    const currentSwatch = Array.from(colorSwatches).find(s => s.dataset.color === playerColor);
+    if (currentSwatch) {
+      currentSwatch.classList.add('selected');
+    }
+    // Update name input
+    nameInput.value = username;
+    newUsername = username;
+    selectedColor = playerColor;
+    updatePreview();
+  });
+  
+  // Close button functionality
+  closeCustomize.addEventListener('click', () => {
+    customizeMenu.style.display = 'none';
+  });
+  
+  // Apply changes button
+  applyCustomization.addEventListener('click', () => {
+    let changed = false;
+    
+    if (selectedColor && selectedColor !== playerColor) {
+      playerColor = selectedColor;
+      changed = true;
+    }
+    
+    if (newUsername && newUsername !== username && newUsername.trim() !== '') {
+      username = newUsername;
+      changed = true;
+    }
+    
+    if (changed) {
+      socket.emit('updatePlayer', { color: playerColor, username: username });
+    }
+    
+    customizeMenu.style.display = 'none';
+  });
+}
+
+startForm.addEventListener('submit', (e) => {
+  e.preventDefault();
+  socket.emit('newPlayer', { username, color: playerColor });
+  startForm.style.display = 'none';
+  // Show the customize button when the game starts
+  customizeBtn.style.display = 'block';
+  currentlyPlaying = true;
+});
+
+window.addEventListener('keydown', (e) => keys[e.key] = true);
+window.addEventListener('keyup', (e) => keys[e.key] = false);
+
+function gameLoop() {
+  if (currentlyPlaying) {
+    if (keys['a'] || keys['ArrowLeft']) socket.emit('move', 'left');
+    if (keys['d'] || keys['ArrowRight']) socket.emit('move', 'right');
+    if (keys['w'] || keys['ArrowUp']) socket.emit('move', 'up');
+    if (keys['s'] || keys['ArrowDown']) socket.emit('move', 'down');
+  }
+  
+  // Update and remove dead particles
+  particles.forEach((particle, index) => {
+    particle.update();
+    if (particle.life <= 0) {
+      particles.splice(index, 1);
+    }
+  });
+  
+  requestAnimationFrame(gameLoop);
+}
+
+socket.on('state', (players) => {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  
+  // Draw particles behind players
+  particles.forEach(particle => {
+    particle.draw();
+  });
+  
+  for (let id in players) {
+    const p = players[id];
+    // Create particles
+    createParticles(p, id);
+    
+    // Get animation state for this player
+    const anim = playerAnimations[id] || { scale: 1, pulsating: false };
+    
+    // Update pulsation if player is moving
+    if (anim.pulsating) {
+      anim.scale += anim.direction * anim.speed;
+      
+      // Reverse direction when reaching scale limits
+      if (anim.scale <= 0.85) {
+        anim.scale = 0.85;
+        anim.direction = 1;
+      } else if (anim.scale >= 1.1) {
+        anim.scale = 1.1;
+        anim.direction = -1;
+      }
+    }
+    
+    // Draw player with pulsation effect
+    ctx.fillStyle = p.color;
+    ctx.beginPath();
+    ctx.save();
+    ctx.translate(p.x, p.y);
+    ctx.scale(anim.scale, anim.scale);
+    ctx.arc(0, 0, 20, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+
+    // Draw player name (not affected by scale)
+    ctx.fillStyle = 'white';
+    ctx.font = '14px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText(p.username || 'Anonymous', p.x, p.y - 30);
+  }
+});
+
+// Chat logic
+const chatForm = document.getElementById('chatForm');
+const chatInput = document.getElementById('chatInput');
+const messages = document.getElementById('messages');
+
+chatForm.addEventListener('submit', (e) => {
+  e.preventDefault();
+  if (chatInput.value.trim()) {
+    socket.emit('chatMessage', chatInput.value);
+    chatInput.value = '';
+  }
+});
+
+socket.on('chatMessage', (msg) => {
+  const div = document.createElement('div');
+  div.textContent = `${msg.username}: ${msg.text}`;
+  messages.appendChild(div);
+  messages.scrollTop = messages.scrollHeight;
+});
+
+socket.on('chatHistory', (history) => {
+  messages.innerHTML = '';
+  history.forEach((msg) => {
+    const div = document.createElement('div');
+    div.textContent = `${msg.username}: ${msg.text}`;
+    messages.appendChild(div);
+  });
+  messages.scrollTop = messages.scrollHeight;
+});
+
+// Initialize the game
+function init() {
+  initializeColorSwatches();
+  initializeCustomizationMenu();
+  requestAnimationFrame(gameLoop);
+}
+
+// Start everything when the page loads
+window.addEventListener('load', init);
+
+public/index.html:
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Blobby Game</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <h1>🌈 Blobby Game 🌈</h1>
+  <form id="startForm">
+    <button type="submit">Join Game</button>
+  </form>
+  
+  <div id="gameContainer">
+    <canvas id="game" width="800" height="600"></canvas>
+	
+	<button id="customizeBtn" class="action-button">Customize Blob</button>
+    
+    <div id="customizeMenu">
+      <h3>Customize Your Blob</h3>
+      
+      <div class="menu-section">
+        <label for="nameInput">Change Name:</label>
+        <input type="text" id="nameInput" placeholder="Enter new name">
+      </div>
+      
+      <div class="menu-section">
+        <label>Choose Color:</label>
+        <div class="color-options">
+          <div class="color-swatch" data-color="red" style="background-color: red;"></div>
+          <div class="color-swatch" data-color="blue" style="background-color: blue;"></div>
+          <div class="color-swatch" data-color="green" style="background-color: green;"></div>
+          <div class="color-swatch" data-color="purple" style="background-color: purple;"></div>
+          <div class="color-swatch" data-color="orange" style="background-color: orange;"></div>
+          <div class="color-swatch" data-color="pink" style="background-color: pink;"></div>
+          <div class="color-swatch" data-color="cyan" style="background-color: cyan;"></div>
+          <div class="color-swatch" data-color="yellow" style="background-color: yellow;"></div>
+        </div>
+      </div>
+      
+      <div class="preview-container">
+        <div>Preview:</div>
+        <canvas id="blobPreview" width="100" height="100"></canvas>
+        <div id="namePreview">Player123</div>
+      </div>
+      
+      <button id="applyCustomization" class="action-button">Apply Changes</button>
+      <button id="closeCustomize" class="action-button secondary">Close</button>
+    </div>
+  </div>
+  
+  <div id="chat">
+    <div id="messages"></div>
+    <form id="chatForm">
+      <input type="text" id="chatInput" placeholder="Type a message..." />
+      <button type="submit">Send</button>
+    </form>
+  </div>
+  
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="client.js"></script>
+</body>
+</html>
+
+public/style.css:
+
+body {
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  background: #0D1B2A;
+  font-family: sans-serif;
+  color: #E0E1DD;
+}
+canvas {
+  border: 2px solid #778DA9;
+  background: #1B263B;
+  margin-top: 20px;
+}
+#startForm {
+  margin-top: 20px;
+}
+input[type="text"] {
+  padding: 8px;
+  border-radius: 4px;
+  border: none;
+  margin-right: 8px;
+  background-color: #E0E1DD;
+  color: #0D1B2A;
+}
+button[type="submit"] {
+  padding: 8px 16px;
+  border-radius: 4px;
+  border: none;
+  background-color: #415A77;
+  color: #E0E1DD;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+button[type="submit"]:hover {
+  background-color: #778DA9;
+}
+#chat {
+  width: 800px;
+  margin-top: 20px;
+}
+#messages {
+  height: 150px;
+  overflow-y: auto;
+  background: #1B263B;
+  border: 1px solid #415A77;
+  padding: 10px;
+  border-radius: 4px;
+  margin-bottom: 10px;
+  word-wrap: break-word;
+  color: white;
+}
+#chatForm input[type="text"] {
+  width: 70%;
+  padding: 8px;
+  border-radius: 4px;
+  border: none;
+  margin-right: 8px;
+  background-color: #E0E1DD;
+  color: #0D1B2A;
+}
+#chatForm button {
+  padding: 8px 16px;
+  border-radius: 4px;
+  border: none;
+  background-color: #415A77;
+  color: #E0E1DD;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+#chatForm button:hover {
+  background-color: #778DA9;
+}
+
+/* Game container styles */
+#gameContainer {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+/* Customize button */
+#customizeBtn {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  z-index: 10;
+  background-color: #415A77;
+  color: #E0E1DD;
+  border: none;
+  border-radius: 4px;
+  padding: 8px 12px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: background-color 0.2s;
+  display: none; /* Hidden by default until game starts */
+}
+
+#customizeBtn:hover {
+  background-color: #778DA9;
+}
+
+/* Customization menu */
+#customizeMenu {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background-color: #1B263B;
+  border: 2px solid #415A77;
+  border-radius: 8px;
+  padding: 20px;
+  z-index: 100;
+  width: 300px;
+  display: none; /* Hidden by default */
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+}
+
+#customizeMenu h3 {
+  text-align: center;
+  margin-top: 0;
+  color: #E0E1DD;
+  margin-bottom: 15px;
+}
+
+.menu-section {
+  margin-bottom: 15px;
+}
+
+.menu-section label {
+  display: block;
+  margin-bottom: 8px;
+  color: #E0E1DD;
+  font-weight: bold;
+}
+
+#nameInput {
+  width: calc(100% - 16px);
+  padding: 8px;
+  border-radius: 4px;
+  border: none;
+  background-color: #E0E1DD;
+  color: #0D1B2A;
+  margin-bottom: 5px;
+}
+
+.color-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: center;
+  margin-top: 8px;
+}
+
+.color-swatch {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  cursor: pointer;
+  transition: transform 0.2s, box-shadow 0.2s;
+  border: 2px solid transparent;
+}
+
+.color-swatch:hover {
+  transform: scale(1.1);
+}
+
+.color-swatch.selected {
+  border: 2px solid white;
+  box-shadow: 0 0 10px rgba(255, 255, 255, 0.5);
+}
+
+.preview-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  margin: 15px 0;
+  background-color: rgba(13, 27, 42, 0.5);
+  padding: 10px;
+  border-radius: 8px;
+}
+
+#blobPreview {
+  background-color: #0D1B2A;
+  border-radius: 4px;
+  margin: 5px 0;
+}
+
+#namePreview {
+  color: white;
+  font-size: 14px;
+  margin-top: 5px;
+  text-align: center;
+}
+
+.action-button {
+  padding: 8px 16px;
+  border-radius: 4px;
+  border: none;
+  width: 100%;
+  margin-top: 10px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+  font-weight: bold;
+}
+
+#applyCustomization {
+  background-color: #415A77;
+  color: #E0E1DD;
+}
+
+#applyCustomization:hover {
+  background-color: #778DA9;
+}
+
+#closeCustomize {
+  background-color: #1B263B;
+  border: 1px solid #415A77;
+  color: #E0E1DD;
+}
+
+#closeCustomize:hover {
+  background-color: #28374F;
+}
+
+.secondary {
+  margin-top: 5px;
+}

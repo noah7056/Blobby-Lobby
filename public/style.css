@@ -1,0 +1,332 @@
+body {
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  background: #0D1B2A;
+  font-family: sans-serif;
+  color: #E0E1DD;
+}
+canvas {
+  border: 2px solid #778DA9;
+  background: #1B263B;
+  margin-top: 20px;
+}
+#startForm {
+  margin-top: 20px;
+}
+input[type="text"] {
+  padding: 8px;
+  border-radius: 4px;
+  border: none;
+  margin-right: 8px;
+  background-color: #E0E1DD;
+  color: #0D1B2A;
+}
+button[type="submit"] {
+  padding: 8px 16px;
+  border-radius: 4px;
+  border: none;
+  background-color: #415A77;
+  color: #E0E1DD;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+button[type="submit"]:hover {
+  background-color: #778DA9;
+}
+#chat {
+  width: 800px;
+  margin-top: 20px;
+}
+#messages {
+  height: 150px;
+  overflow-y: auto;
+  background: #1B263B;
+  border: 1px solid #415A77;
+  padding: 10px;
+  border-radius: 4px;
+  margin-bottom: 10px;
+  word-wrap: break-word;
+  color: white;
+}
+#chatForm input[type="text"] {
+  width: 70%;
+  padding: 8px;
+  border-radius: 4px;
+  border: none;
+  margin-right: 8px;
+  background-color: #E0E1DD;
+  color: #0D1B2A;
+}
+#chatForm button {
+  padding: 8px 16px;
+  border-radius: 4px;
+  border: none;
+  background-color: #415A77;
+  color: #E0E1DD;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+#chatForm button:hover {
+  background-color: #778DA9;
+}
+
+/* Game container styles */
+#gameContainer {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+/* Customize button - updated position */
+#customizeBtn {
+  position: static; /* Change from absolute to static */
+  margin: 10px 0; /* Add margin top and bottom */
+  background-color: #415A77;
+  color: #E0E1DD;
+  border: none;
+  border-radius: 4px;
+  padding: 8px 12px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: background-color 0.2s;
+  display: none; /* Hidden by default until game starts */
+  width: 800px; /* Match the width of the game canvas */
+}
+
+#customizeBtn:hover {
+  background-color: #778DA9;
+}
+
+/* Customization menu */
+#customizeMenu {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background-color: #1B263B;
+  border: 2px solid #415A77;
+  border-radius: 8px;
+  padding: 20px;
+  z-index: 100;
+  width: 300px;
+  display: none; /* Hidden by default */
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+}
+
+#customizeMenu h3 {
+  text-align: center;
+  margin-top: 0;
+  color: #E0E1DD;
+  margin-bottom: 15px;
+}
+
+.menu-section {
+  margin-bottom: 15px;
+}
+
+.menu-section label {
+  display: block;
+  margin-bottom: 8px;
+  color: #E0E1DD;
+  font-weight: bold;
+}
+
+#nameInput {
+  width: calc(100% - 16px);
+  padding: 8px;
+  border-radius: 4px;
+  border: none;
+  background-color: #E0E1DD;
+  color: #0D1B2A;
+  margin-bottom: 5px;
+}
+
+.color-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: center;
+  margin-top: 8px;
+}
+
+.color-swatch {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  cursor: pointer;
+  transition: transform 0.2s, box-shadow 0.2s;
+  border: 2px solid transparent;
+}
+
+.color-swatch:hover {
+  transform: scale(1.1);
+}
+
+.color-swatch.selected {
+  border: 2px solid white;
+  box-shadow: 0 0 10px rgba(255, 255, 255, 0.5);
+}
+
+.preview-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  margin: 15px 0;
+  background-color: rgba(13, 27, 42, 0.5);
+  padding: 10px;
+  border-radius: 8px;
+}
+
+#blobPreview {
+  background-color: #0D1B2A;
+  border-radius: 4px;
+  margin: 5px 0;
+}
+
+#namePreview {
+  color: white;
+  font-size: 14px;
+  margin-top: 5px;
+  text-align: center;
+}
+
+.action-button {
+  padding: 8px 16px;
+  border-radius: 4px;
+  border: none;
+  width: 100%;
+  margin-top: 10px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+  font-weight: bold;
+}
+
+#applyCustomization {
+  background-color: #415A77;
+  color: #E0E1DD;
+}
+
+#applyCustomization:hover {
+  background-color: #778DA9;
+}
+
+#closeCustomize {
+  background-color: #1B263B;
+  border: 1px solid #415A77;
+  color: #E0E1DD;
+}
+
+#closeCustomize:hover {
+  background-color: #28374F;
+}
+
+.secondary {
+  margin-top: 5px;
+}
+
+/* Spray button styles */
+#sprayBtn {
+  position: static;
+  margin: 10px 0;
+  background-color: #415A77;
+  color: #E0E1DD;
+  border: none;
+  border-radius: 4px;
+  padding: 8px 12px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: background-color 0.2s;
+  display: none; /* Hidden by default until game starts */
+  width: 800px; /* Match the width of the game canvas */
+}
+
+#sprayBtn:hover {
+  background-color: #778DA9;
+}
+
+/* Spray menu */
+#sprayMenu {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background-color: #1B263B;
+  border: 2px solid #415A77;
+  border-radius: 8px;
+  padding: 20px;
+  z-index: 100;
+  width: 300px;
+  display: none; /* Hidden by default */
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+}
+
+#sprayMenu h3 {
+  text-align: center;
+  margin-top: 0;
+  color: #E0E1DD;
+  margin-bottom: 15px;
+}
+
+.spray-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: center;
+  margin-bottom: 15px;
+}
+
+.spray-item {
+  width: 50px;
+  height: 50px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: rgba(65, 90, 119, 0.5);
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 24px;
+  transition: transform 0.2s, background-color 0.2s;
+}
+
+.spray-item:hover {
+  transform: scale(1.1);
+  background-color: rgba(65, 90, 119, 0.8);
+}
+
+.pet-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: center;
+  margin-top: 8px;
+}
+
+.pet-item {
+  width: 60px;
+  height: 40px;
+  border-radius: 8px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: rgba(65, 90, 119, 0.5);
+  color: #E0E1DD;
+  transition: transform 0.2s, background-color 0.2s;
+  font-size: 12px;
+  text-align: center;
+}
+
+.pet-item:hover {
+  transform: scale(1.1);
+  background-color: rgba(65, 90, 119, 0.8);
+}
+
+.pet-item.selected {
+  border: 2px solid white;
+  box-shadow: 0 0 10px rgba(255, 255, 255, 0.5);
+}

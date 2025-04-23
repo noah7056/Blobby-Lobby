@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Blobby Lobby</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <h1>🌈 Blobby Lobby 🌈</h1>
+  <form id="startForm">
+    <button type="submit">Join Lobby</button>
+  </form>
+  
+	<button id="customizeBtn" class="action-button">Customize Blob</button>
+	<button id="sprayBtn" class="action-button">Use Spray</button>
+  
+  <div id="gameContainer">
+    <canvas id="game" width="800" height="600"></canvas>
+    
+    <div id="customizeMenu">
+      <h3>Customize Your Blob</h3>
+      
+      <div class="menu-section">
+        <label for="nameInput">Change Name:</label>
+        <input type="text" id="nameInput" placeholder="Enter new name">
+      </div>
+      
+      <div class="menu-section">
+        <label>Choose Color:</label>
+        <div class="color-options">
+          <div class="color-swatch" data-color="red" style="background-color: red;"></div>
+          <div class="color-swatch" data-color="blue" style="background-color: blue;"></div>
+          <div class="color-swatch" data-color="green" style="background-color: green;"></div>
+          <div class="color-swatch" data-color="purple" style="background-color: purple;"></div>
+          <div class="color-swatch" data-color="orange" style="background-color: orange;"></div>
+          <div class="color-swatch" data-color="pink" style="background-color: pink;"></div>
+          <div class="color-swatch" data-color="cyan" style="background-color: cyan;"></div>
+          <div class="color-swatch" data-color="yellow" style="background-color: yellow;"></div>
+        </div>
+      </div>
+	  
+	  <div class="menu-section">
+  <label>Choose Pet:</label>
+  <div class="pet-options">
+    <div class="pet-item" data-pet="none">None</div>
+    <div class="pet-item" data-pet="amongus">Among Us</div>
+    <div class="pet-item" data-pet="cutecreeper">Creeper</div>
+    <div class="pet-item" data-pet="ducky">Ducky</div>
+    <div class="pet-item" data-pet="pusheen">Pusheen</div>
+    <div class="pet-item" data-pet="wheatleyportal2">Wheatley</div>
+  </div>
+</div>
+      
+      <div class="preview-container">
+        <div>Preview:</div>
+        <canvas id="blobPreview" width="100" height="100"></canvas>
+        <div id="namePreview">Player123</div>
+      </div>
+      
+      <button id="applyCustomization" class="action-button">Apply Changes</button>
+      <button id="closeCustomize" class="action-button secondary">Close</button>
+    </div>
+  </div>
+  
+  <div id="sprayMenu">
+  <h3>Choose a Spray</h3>
+  <div class="spray-options">
+    <div class="spray-item" data-emoji="😀">😀</div>
+    <div class="spray-item" data-emoji="👍">👍</div>
+    <div class="spray-item" data-emoji="❤️">❤️</div>
+    <div class="spray-item" data-emoji="🔥">🔥</div>
+    <div class="spray-item" data-emoji="😎">😎</div>
+    <div class="spray-item" data-emoji="🤣">🤣</div>
+    <div class="spray-item" data-emoji="👋">👋</div>
+    <div class="spray-item" data-emoji="🎮">🎮</div>
+  </div>
+  <button id="closeSprayMenu" class="action-button secondary">Close</button>
+</div>
+  
+  <div id="chat">
+    <div id="messages"></div>
+    <form id="chatForm">
+      <input type="text" id="chatInput" placeholder="Type a message..." />
+      <button type="submit">Send</button>
+    </form>
+  </div>
+  
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="client.js"></script>
+</body>
+</html>
